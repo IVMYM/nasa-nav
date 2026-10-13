@@ -16,10 +16,11 @@ const html = `
   </a>
 </div>
 <h2 class="display-48 margin-top-0 margin-bottom-3">Jupiter and the Moons</h2>
-Date: October 12, 2026
+<table><tr><th>Date:</th><td>October 12, 2026</td></tr></table>
 `
 const parsed = parseApodHtml(html)
 assert.equal(parsed.title, 'Jupiter and the Moons')
+assert.equal(parsed.date, 'October 12, 2026')
 assert.match(parsed.imageUrl, /JupiterMoons_Upreti_3105\.jpg\?w=2048$/)
 assert.match(parsed.archiveUrl, /ap261012\.html$/)
 assert.doesNotMatch(parsed.imageUrl, /nasa-logo/)

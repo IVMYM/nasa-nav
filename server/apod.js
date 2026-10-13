@@ -57,7 +57,9 @@ export function parseApodHtml(html) {
   const pageUrl = decodeHtml(
     (html.match(/href="(https:\/\/science\.nasa\.gov\/image-article\/apod-[^"]+)"/i) || [])[1] || '',
   ) || APOD_PAGE
-  const dateText = decodeHtml((html.match(/Date:\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/i) || [])[1] || '')
+  const dateText = decodeHtml(
+    (html.match(/Date:[\s\S]{0,240}?([A-Za-z]+\s+\d{1,2},\s+\d{4})/i) || [])[1] || '',
+  )
   return {
     imageUrl,
     pageUrl,

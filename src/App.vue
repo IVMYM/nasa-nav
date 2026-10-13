@@ -243,6 +243,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         <section class="main-content">
           <p v-if="siteLoading" class="text-center text-white/50 text-sm">导航加载中…</p>
           <p v-else-if="siteError" class="bg-error">{{ siteError }}</p>
+          <p v-else-if="!visibleLinks.length" class="text-white/40 text-center text-sm py-2">这个分类还没有链接</p>
           <div v-else class="nav-card-grid">
             <a
               v-for="(link, index) in visibleLinks"
@@ -258,7 +259,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
                 <span class="link-text">{{ link.title }}</span>
               </span>
             </a>
-            <p v-if="!visibleLinks.length" class="text-white/40 text-center text-sm py-2">这个分类还没有链接</p>
           </div>
 
           <div
