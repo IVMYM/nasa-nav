@@ -5,6 +5,9 @@ const THEME_KEY = 'zen-theme'
 const SOURCE_KEY = 'zen-bg-source'
 const TODO_KEY = 'zen-todos'
 const WIDGET_KEY = 'zen-widgets-open'
+const SEARCH_HISTORY_KEY = 'zen-search-history'
+const MAX_SEARCH_HISTORY = 20
+const MAX_SEARCH_SUGGESTIONS = 10
 
 const themes = [
   { id: 'ink', label: '墨韵' },
@@ -40,8 +43,53 @@ const helpOpen = ref(false)
 const todos = ref(loadTodos())
 const todoDraft = ref('')
 const searchEl = ref(null)
+const searchFocused = ref(false)
+const isComposing = ref(false)
+const suggestIndex = ref(-1)
+const searchHistory = ref(loadSearchHistory())
 
 const menus = computed(() => site.value?.menus || [])
+const allLinkTitles = computed(() => {
+  const titles = new Set()
+  for (const menu of menus.value) {
+    for (const link of menu.links || []) {
+      if (link.title?.trim()) titles.add(link.title.trim())
+    }
+  }
+  return [...titles]
+})
+const searchSuggestions = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  const items = []
+  const seen = new Set()
+
+  const add = (text, kind) => {
+    const normalized = text.trim()
+    if (!normalized) return
+    const key = normalized.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    items.push({ text: normalized, kind })
+  }
+
+  if (q) {
+    for (const entry of searchHistory.value) {
+      const lower = entry.toLowerCase()
+      if (lower.includes(q)) add(entry, 'history')
+      if (items.length >= MAX_SEARCH_SUGGESTIONS) return items
+    }
+    for (const title of allLinkTitles.value) {
+      if (title.toLowerCase().includes(q)) add(title, 'bookmark')
+      if (items.length >= MAX_SEARCH_SUGGESTIONS) return items
+    }
+  } else {
+    for (const entry of searchHistory.value.slice(0, 8)) add(entry, 'history')
+  }
+  return items
+})
+const showSearchSuggestions = computed(
+  () => searchFocused.value && searchSuggestions.value.length > 0,
+)
 const activeLinks = computed(() => menus.value.find((menu) => menu.id === activeMenu.value)?.links || [])
 const visibleLinks = computed(() => {
   const text = query.value.trim().toLowerCase()
@@ -69,6 +117,26 @@ watch(theme, (value) => localStorage.setItem(THEME_KEY, value))
 watch(source, (value) => localStorage.setItem(SOURCE_KEY, value))
 watch(widgetsOpen, (value) => localStorage.setItem(WIDGET_KEY, value ? '1' : '0'))
 watch(todos, (value) => localStorage.setItem(TODO_KEY, JSON.stringify(value)), { deep: true })
+watch(query, () => {
+  suggestIndex.value = -1
+})
+
+function loadSearchHistory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]')
+    return Array.isArray(raw) ? raw.filter((item) => typeof item === 'string' && item.trim()) : []
+  } catch {
+    return []
+  }
+}
+
+function saveSearchHistory(text) {
+  const normalized = text.trim()
+  if (!normalized) return
+  const next = [normalized, ...searchHistory.value.filter((item) => item !== normalized)].slice(0, MAX_SEARCH_HISTORY)
+  searchHistory.value = next
+  localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next))
+}
 
 function loadTodos() {
   try {
@@ -137,9 +205,75 @@ async function loadPoetry() {
 }
 
 function search() {
+  if (isComposing.value) return
   const text = query.value.trim()
-  if (!text || engine.value.name === 'site') return
+  if (!text) return
+  saveSearchHistory(text)
+  if (engine.value.name === 'site') {
+    searchFocused.value = false
+    return
+  }
   window.open(engine.value.url(text), '_blank', 'noopener')
+  searchFocused.value = false
+}
+
+function pickSuggestion(item) {
+  query.value = item.text
+  suggestIndex.value = -1
+  if (engine.value.name === 'site') {
+    saveSearchHistory(item.text)
+    searchEl.value?.focus()
+    return
+  }
+  saveSearchHistory(item.text)
+  window.open(engine.value.url(item.text), '_blank', 'noopener')
+  searchFocused.value = false
+}
+
+function onSearchFocus() {
+  searchFocused.value = true
+}
+
+function onSearchBlur() {
+  window.setTimeout(() => {
+    searchFocused.value = false
+    suggestIndex.value = -1
+  }, 120)
+}
+
+function onSearchCompositionStart() {
+  isComposing.value = true
+}
+
+function onSearchCompositionEnd(event) {
+  isComposing.value = false
+  if (event?.target?.value != null) query.value = event.target.value
+}
+
+function onSearchKeydown(event) {
+  if (event.key === 'Enter' && (event.isComposing || isComposing.value)) {
+    event.preventDefault()
+    return
+  }
+  if (!showSearchSuggestions.value) return
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    const last = searchSuggestions.value.length - 1
+    suggestIndex.value = suggestIndex.value < 0 ? 0 : Math.min(suggestIndex.value + 1, last)
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    suggestIndex.value = Math.max(suggestIndex.value - 1, 0)
+  } else if (event.key === 'Enter') {
+    event.preventDefault()
+    const item = searchSuggestions.value[suggestIndex.value]
+    if (item) pickSuggestion(item)
+    else search()
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    suggestIndex.value = -1
+    searchFocused.value = false
+  }
 }
 
 function addTodo() {
@@ -220,14 +354,43 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               {{ item.label }}
             </button>
           </div>
-          <form class="search-container" @submit.prevent="search">
+          <form class="search-container search-container--with-suggest" @submit.prevent="search">
             <input
               ref="searchEl"
               v-model="query"
               class="search-input-nav"
               :placeholder="engine.placeholder"
               aria-label="搜索"
+              aria-autocomplete="list"
+              :aria-expanded="showSearchSuggestions"
+              aria-controls="search-suggest-list"
+              autocomplete="off"
+              @focus="onSearchFocus"
+              @blur="onSearchBlur"
+              @keydown="onSearchKeydown"
+              @compositionstart="onSearchCompositionStart"
+              @compositionend="onSearchCompositionEnd"
             />
+            <ul
+              v-if="showSearchSuggestions"
+              id="search-suggest-list"
+              class="search-suggest"
+              role="listbox"
+              aria-label="搜索建议"
+            >
+              <li
+                v-for="(item, index) in searchSuggestions"
+                :key="`${item.kind}-${item.text}`"
+                role="option"
+                :aria-selected="index === suggestIndex"
+                class="search-suggest__item"
+                :class="{ 'search-suggest__item--active': index === suggestIndex }"
+                @mousedown.prevent="pickSuggestion(item)"
+              >
+                <span class="search-suggest__tag">{{ item.kind === 'history' ? '历史' : '站点' }}</span>
+                <span class="search-suggest__text">{{ item.text }}</span>
+              </li>
+            </ul>
             <button v-if="query" type="button" class="clear-btn-nav" aria-label="清空" @click="query = ''">×</button>
             <button type="submit" class="search-btn-nav" aria-label="搜索">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
