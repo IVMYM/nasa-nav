@@ -4,13 +4,11 @@
 
 线上页面：<https://nav.xxznote.eu.org/>
 
-## 每日背景
+## 部署到 Vercel
 
-NASA 已把 Astronomy Picture of the Day 从 `apod.nasa.gov` 迁到 [science.nasa.gov/apod](https://science.nasa.gov/apod/)。旧地址会 301 到新首页的 HTML，不再是 RSS。`api.nasa.gov/planetary/apod` 在不带日期时会返回 500；带上日期时，`url` / `hdurl` 经常是 NASA 站标，不是当天的天文图。
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FIVMYM%2Fnasa-nav&project-name=nasa-nav&env=NASA_API_KEY&envDescription=NASA%20APOD%20API%20%E5%AF%86%E9%92%A5%EF%BC%88%E5%8F%AF%E9%80%89%EF%BC%8C%E4%B8%8D%E5%A1%AB%E5%88%99%E4%BD%BF%E7%94%A8%20DEMO_KEY%EF%BC%89)
 
-本仓库的 `/api/apod/today` 改为读取新页面主图（要一张约 2048 宽的图），并丢掉站标和缩略图。页面解析失败时，才回退到 API，并向前最多找 6 天。结果缓存 3 小时。`/apod-rss` 仍输出旧前端认得的 RSS（链接形如 `apod.nasa.gov/apod/apYYMMDD.html`，描述里是真实图片）。
-
-可选环境变量 `NASA_API_KEY`。不设置时，API 回退使用 `DEMO_KEY`。
+导入仓库后 Vercel 会执行 `npm run build` 并把 `dist` 作为静态资源；`/api/*` 与 `/apod-rss` 走 Serverless 函数。
 
 ## 本地运行
 
@@ -27,7 +25,3 @@ npm run build && npm start
 ```
 
 导航数据在 `data/site.json`，与线上 `/api/site` 一致（站点记录更新于 2026-10-12）。
-
-## 和 OCI 上的部署
-
-Oracle Cloud 上的主机名是 `oci`（Ubuntu 20.04，ARM，新加坡）。这次会话没有那台机器的 SSH 凭据，也没法把命令送到已连接的本机 SSH 工作目录，所以没有把服务器上的源码目录原样拷下来。这里提交的是按线上页面、接口和样式还原的首页，并修好了每日背景。把这个服务部署回 `oci` 后，首页会重新显示当天的天文图。
