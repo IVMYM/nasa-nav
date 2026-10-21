@@ -1,0 +1,18 @@
+[Unit]
+Description=Moyun Nav (墨韵琉璃 personal start page)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/nasa-nav
+Environment=NODE_ENV=production
+Environment=PORT=47831
+# Optional: NASA APOD API fallback key (omit to use DEMO_KEY)
+# Environment=NASA_API_KEY=
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

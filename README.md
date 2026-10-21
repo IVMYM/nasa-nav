@@ -4,6 +4,26 @@
 
 线上页面：<https://nav.xxznote.eu.org/>
 
+## 部署到 OCI（Oracle Cloud）
+
+线上域名示例：<https://nav.xxznote.eu.org/>（Nginx 反代 + Cloudflare）。
+
+在 **OCI Ubuntu** 机器上（首次）：
+
+```bash
+git clone https://github.com/IVMYM/nasa-nav.git ~/nasa-nav
+cd ~/nasa-nav
+bash deploy/oci/install.sh
+```
+
+之后每次发版：
+
+```bash
+cd ~/nasa-nav && bash deploy/oci/deploy.sh
+```
+
+`install.sh` 会 `npm ci && npm run build`、安装并启动 systemd 服务 `moyun-nav`（默认端口 **47831**），并在已安装 Nginx 时写入 `deploy/oci/nginx-nav.conf`。可选：在 `/etc/systemd/system/moyun-nav.service` 里设置 `Environment=NASA_API_KEY=...`。
+
 ## 部署到 Vercel
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FIVMYM%2Fnasa-nav&project-name=nasa-nav&env=NASA_API_KEY&envDescription=NASA%20APOD%20API%20%E5%AF%86%E9%92%A5%EF%BC%88%E5%8F%AF%E9%80%89%EF%BC%8C%E4%B8%8D%E5%A1%AB%E5%88%99%E4%BD%BF%E7%94%A8%20DEMO_KEY%EF%BC%89)
